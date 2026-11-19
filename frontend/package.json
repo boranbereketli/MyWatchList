@@ -24,7 +24,6 @@
     "@radix-ui/react-tabs": "^1.1.2",
     "@radix-ui/react-tooltip": "^1.1.6",
     "@tanstack/react-table": "^8.20.6",
-    "@types/recharts": "^1.8.29",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "1.0.0",
@@ -40,7 +39,6 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.17.0",
-    "@types/dotenv": "^8.2.3",
     "@types/node": "^22.10.2",
     "@types/react": "^19.0.2",
     "@types/react-dom": "^19.0.2",
@@ -56,5 +54,8 @@
     "typescript": "^5.7.2",
     "typescript-eslint": "^8.18.2",
     "vite": "^6.0.6"
+  },
+  "resolutions": {
+    "eslint-visitor-keys": "^4.2.1"
   }
 }
