@@ -28,12 +28,12 @@ import { useAuth } from "@/contexts/auth-provider";
 import { Component as PieChartComponent } from "@/components/user-pie-chart";
 import { Dot, Send, UserCheck, UserPlus, X } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
-import { timeAgo } from "@/lib/utils";
+import { getErrorMessage, timeAgo } from "@/lib/utils";
 
 export default function User() {
   const { username } = useParams<{ username: string }>();
   const [currentUser, setUser] = useState({} as UserType);
-  const [error, setError] = useState<boolean | null>(false);
+  const [error, setError] = useState<boolean | string | null>(false);
   const [ShowList, setShowList] = useState<showShort[]>([]);
   const [stats, setStats] = useState({} as userStats);
   const [isFollowed, setIsFollowed] = useState(false); // State for follow status
@@ -57,7 +57,7 @@ export default function User() {
           comment: comment,
           comment_id: res.comment_id,
           date: new Date().toISOString(),
-          username: user?.username!,
+          username: user?.username ?? "",
         };
 
         setUser((prevUser) => {
@@ -117,8 +117,8 @@ export default function User() {
         } else {
           setError(true);
         }
-      } catch (err: any) {
-        setError(err.message || "Failed to fetch user");
+      } catch (err) {
+        setError(getErrorMessage(err, "Failed to fetch user"));
       }
     };
 
@@ -350,7 +350,6 @@ function ShowCard({ show }: { show: showShort }) {
   if (!show.poster_path || !show.title || !show.show_id) {
     return null;
   }
-  console.log(show);
   const type = show.is_movie ? "movie" : "tv";
   const id = show.show_id;
   return (
@@ -373,28 +372,24 @@ function ShowCard({ show }: { show: showShort }) {
           {/* Show Info */}
           <div className="text-sm text-muted-foreground flex-grow">
             <p className="mb-1 text-muted-foreground">
-              {/*@ts-ignore */}
-              List: <span className="font-medium text-muted-foreground">{show.user_show_info?.list_type}</span>
+                            List: <span className="font-medium text-muted-foreground">{show.user_show_info?.list_type}</span>
             </p>
             <p className="mb-1 text-muted-foreground">
-              {/*@ts-ignore */}
-              Score: <span className="font-medium text-muted-foreground">{show.user_show_info?.score}/10</span>
+                            Score: <span className="font-medium text-muted-foreground">{show.user_show_info?.score}/10</span>
             </p>
             {!show.is_movie && (
               <>
                 <p className="mb-1 text-muted-foreground">
                   Season:{" "}
                   <span className="font-medium text-muted-foreground">
-                    {/*@ts-ignore */}
-                    {show.user_show_info?.season_number ? show.user_show_info?.season_number : "0"}/
+                                        {show.user_show_info?.season_number ? show.user_show_info?.season_number : "0"}/
                     {show.user_show_info?.number_of_seasons}
                   </span>
                 </p>
                 <p>
                   Episodes:{" "}
                   <span className="font-medium text-muted-foreground">
-                    {/*@ts-ignore */}
-                    {show.user_show_info?.episode_number ? show.user_show_info?.episode_number : "0"}/
+                                        {show.user_show_info?.episode_number ? show.user_show_info?.episode_number : "0"}/
                     {show.user_show_info?.episode_count ?? 0}
                   </span>
                 </p>

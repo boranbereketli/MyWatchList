@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { cn } from "@/lib/utils";
+import { cn, getErrorMessage } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -10,7 +10,7 @@ import { useAuth } from "@/contexts/auth-provider";
 export function LoginForm({ className, ...props }: React.ComponentPropsWithoutRef<"div">) {
   const [mail, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
@@ -23,8 +23,8 @@ export function LoginForm({ className, ...props }: React.ComponentPropsWithoutRe
     try {
       await login({ mail, password });
       navigate("/");
-    } catch (err: any) {
-      setError(err.message || "Failed to login");
+    } catch (err) {
+      setError(getErrorMessage(err, "Failed to login"));
     } finally {
       setLoading(false);
     }

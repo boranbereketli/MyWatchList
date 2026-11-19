@@ -6,17 +6,19 @@ import { Button } from "@/components/ui/button";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
+type ComboboxValue = string | null | undefined;
+
 interface ComboboxProps {
-  elements: { value: any; label: string }[];
+  elements: { value: string; label: string }[];
   placeholder?: string;
   searchPlaceholder?: string;
   nothingFoundMessage?: string;
   mandatory?: boolean;
-  value: any;
-  onChange: (value: any) => void;
-  onCollapse?: (value: any) => void;
-  onMouseEnter?: (value: any) => void;
-  onMouseLeave?: (value: any) => void;
+  value: ComboboxValue;
+  onChange: (value: string) => void;
+  onCollapse?: (value: ComboboxValue) => void;
+  onMouseEnter?: (value: string) => void;
+  onMouseLeave?: (value: string) => void;
   disableSearch?: boolean;
   disabled?: boolean;
   className?: string;

@@ -3,6 +3,7 @@
 import {
   ColumnDef,
   ColumnFiltersState,
+  Row,
   SortingState,
   VisibilityState,
   flexRender,
@@ -21,11 +22,114 @@ import { useAuth } from "@/contexts/auth-provider";
 import { addUser, changeUserPassword, deleteUser, editUser, preloadShows, removeAllShows, userList } from "@/lib/api";
 import { ManagedUser } from "@shared/types/admin";
 import { Check, Pencil, Search, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { Dispatch, SetStateAction, useEffect, useState } from "react";
 import { NavLink } from "react-router-dom";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Combobox } from "@/components/ui/Combobox";
 import { Label } from "@/components/ui/label";
+
+type SetUsers = Dispatch<SetStateAction<ManagedUser[]>>;
+
+const iconButtonClass =
+  "rounded-full h-5 w-5 p-1 hover:bg-accent disabled:opacity-50 disabled:pointer-events-none shrink-0";
+
+// Inline-editable text cell. Kept as a real component (not inlined in the column's `cell`)
+// because it holds state, and hooks can't live in a plain render callback.
+function EditableCell({ row, field, setUsers }: { row: Row<ManagedUser>; field: "username" | "mail"; setUsers: SetUsers }) {
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState(row.original[field]);
+
+  const save = () => {
+    const newUser = row.original;
+    newUser[field] = value;
+
+    editUser({ user: newUser }).then((res) => {
+      if (res.success) {
+        setUsers((prev) => prev.map((u) => (u.id === newUser.id ? newUser : u)));
+        setEditing(false);
+      }
+    });
+  };
+
+  return (
+    <div>
+      <div className="flex gap-1 items-center">
+        {editing ? (
+          <Input type="text" autoComplete="username" value={value} onChange={(e) => setValue(e.target.value)} />
+        ) : (
+          <div>{row.getValue(field)}</div>
+        )}
+
+        {editing ? (
+          <>
+            <button className={iconButtonClass} onClick={save}>
+              <Check className="w-full h-full" />
+            </button>
+            <button
+              className={iconButtonClass}
+              onClick={() => {
+                setEditing(false);
+                setValue(row.original[field]);
+              }}
+            >
+              <X className="w-full h-full" />
+            </button>
+          </>
+        ) : (
+          <button className={iconButtonClass} onClick={() => setEditing(true)}>
+            <Pencil className="w-full h-full" />
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function UserActionsCell({ user, setUsers }: { user: ManagedUser; setUsers: SetUsers }) {
+  const [newPwd, setNewPwd] = useState("");
+
+  return (
+    <div className="h-full flex items-center justify-end gap-2">
+      <div className="flex gap-1">
+        <Input
+          type="password"
+          autoComplete="new-password"
+          value={newPwd}
+          onChange={(e) => setNewPwd(e.target.value)}
+        />
+        <Button
+          disabled={!newPwd}
+          onClick={() => {
+            changeUserPassword({
+              user_id: user.id,
+              new_password: newPwd,
+            }).then((res) => {
+              if (res.success) {
+                setNewPwd("");
+                alert("Password changed successfully");
+              }
+            });
+          }}
+        >
+          Change Pwd
+        </Button>
+      </div>
+      <Button
+        size={"icon"}
+        variant={"destructive"}
+        onClick={() => {
+          deleteUser({ user_id: user.id }).then((res) => {
+            if (res.success) {
+              setUsers((prev) => prev.filter((u) => u.id !== user.id));
+            }
+          });
+        }}
+      >
+        <X />
+      </Button>
+    </div>
+  );
+}
 
 export default function AdminPanel() {
   const { user } = useAuth();
@@ -86,7 +190,7 @@ function UserPage() {
       });
       if (res.users) {
         setUsers(res.users);
-        setTotalPages(res.pagination?.totalPages!); // Update total pages
+        setTotalPages(res.pagination?.totalPages ?? 1); // Update total pages
       }
     } catch (error) {
       console.error("Error loading users:", error);
@@ -115,128 +219,14 @@ function UserPage() {
       accessorKey: "username",
       header: "Username",
 
-      cell: ({ row }) => {
-        const [editing, setEditing] = useState(false);
-        const [newUsername, setNewUsername] = useState(row.original.username);
-
-        return (
-          <div>
-            <div className="flex gap-1 items-center">
-              {editing ? (
-                <Input
-                  type="text"
-                  autoComplete="username"
-                  value={newUsername}
-                  onChange={(e) => setNewUsername(e.target.value)}
-                />
-              ) : (
-                <div>{row.getValue("username")}</div>
-              )}
-
-              {editing ? (
-                <>
-                  <button
-                    className="rounded-full h-5 w-5 p-1 hover:bg-accent disabled:opacity-50 disabled:pointer-events-none shrink-0"
-                    onClick={() => {
-                      const newUser = row.original;
-                      newUser.username = newUsername;
-
-                      editUser({ user: newUser }).then((res) => {
-                        if (res.success) {
-                          setUsers((prev) => prev.map((u) => (u.id === newUser.id ? newUser : u)));
-                          setEditing(false);
-                        }
-                      });
-                    }}
-                  >
-                    <Check className="w-full h-full" />
-                  </button>
-                  <button
-                    className="rounded-full h-5 w-5 p-1 hover:bg-accent disabled:opacity-50 disabled:pointer-events-none shrink-0"
-                    onClick={() => {
-                      setEditing(false);
-                      setNewUsername(row.original.username);
-                    }}
-                  >
-                    <X className="w-full h-full" />
-                  </button>
-                </>
-              ) : (
-                <button
-                  className="rounded-full h-5 w-5 p-1 hover:bg-accent disabled:opacity-50 disabled:pointer-events-none shrink-0"
-                  onClick={() => setEditing(true)}
-                >
-                  <Pencil className="w-full h-full" />
-                </button>
-              )}
-            </div>
-          </div>
-        );
-      },
+      cell: ({ row }) => <EditableCell row={row} field="username" setUsers={setUsers} />,
       enableSorting: false,
       enableHiding: false,
     },
     {
       accessorKey: "mail",
       header: "Email",
-      cell: ({ row }) => {
-        const [editing, setEditing] = useState(false);
-        const [newMail, setNewMail] = useState(row.original.mail);
-
-        return (
-          <div>
-            <div className="flex gap-1 items-center">
-              {editing ? (
-                <Input
-                  type="text"
-                  autoComplete="username"
-                  value={newMail}
-                  onChange={(e) => setNewMail(e.target.value)}
-                />
-              ) : (
-                <div>{row.getValue("mail")}</div>
-              )}
-
-              {editing ? (
-                <>
-                  <button
-                    className="rounded-full h-5 w-5 p-1 hover:bg-accent disabled:opacity-50 disabled:pointer-events-none shrink-0"
-                    onClick={() => {
-                      const newUser = row.original;
-                      newUser.mail = newMail;
-
-                      editUser({ user: newUser }).then((res) => {
-                        if (res.success) {
-                          setUsers((prev) => prev.map((u) => (u.id === newUser.id ? newUser : u)));
-                          setEditing(false);
-                        }
-                      });
-                    }}
-                  >
-                    <Check className="w-full h-full" />
-                  </button>
-                  <button
-                    className="rounded-full h-5 w-5 p-1 hover:bg-accent disabled:opacity-50 disabled:pointer-events-none shrink-0"
-                    onClick={() => {
-                      setEditing(false);
-                      setNewMail(row.original.mail);
-                    }}
-                  >
-                    <X className="w-full h-full" />
-                  </button>
-                </>
-              ) : (
-                <button
-                  className="rounded-full h-5 w-5 p-1 hover:bg-accent disabled:opacity-50 disabled:pointer-events-none shrink-0"
-                  onClick={() => setEditing(true)}
-                >
-                  <Pencil className="w-full h-full" />
-                </button>
-              )}
-            </div>
-          </div>
-        );
-      },
+      cell: ({ row }) => <EditableCell row={row} field="mail" setUsers={setUsers} />,
       enableSorting: false,
       enableHiding: false,
     },
@@ -273,52 +263,7 @@ function UserPage() {
     {
       id: "actions",
       enableHiding: false,
-      cell: ({ row }) => {
-        const user = row.original;
-        const [newPwd, setNewPwd] = useState("");
-
-        return (
-          <div className="h-full flex items-center justify-end gap-2">
-            <div className="flex gap-1">
-              <Input
-                type="password"
-                autoComplete="new-password"
-                value={newPwd}
-                onChange={(e) => setNewPwd(e.target.value)}
-              />
-              <Button
-                disabled={!newPwd}
-                onClick={() => {
-                  changeUserPassword({
-                    user_id: user.id,
-                    new_password: newPwd,
-                  }).then((res) => {
-                    if (res.success) {
-                      setNewPwd("");
-                      alert("Password changed successfully");
-                    }
-                  });
-                }}
-              >
-                Change Pwd
-              </Button>
-            </div>
-            <Button
-              size={"icon"}
-              variant={"destructive"}
-              onClick={() => {
-                deleteUser({ user_id: user.id }).then((res) => {
-                  if (res.success) {
-                    setUsers((prev) => prev.filter((u) => u.id !== user.id));
-                  }
-                });
-              }}
-            >
-              <X />
-            </Button>
-          </div>
-        );
-      },
+      cell: ({ row }) => <UserActionsCell user={row.original} setUsers={setUsers} />,
     },
   ];
 
