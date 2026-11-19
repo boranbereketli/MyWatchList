@@ -153,7 +153,8 @@ export interface userStats {
   on_hold_count: number;
   plan_to_watch_count: number;
   total_entries: number;
-  top_genres: string;
+  top_genres: string | null;
+  mean_score: string | number | null;
 }
 
 export interface userFollowRequest {

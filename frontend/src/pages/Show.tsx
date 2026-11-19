@@ -32,6 +32,11 @@ interface ShowProps {
   is_movie: boolean;
 }
 
+type ListType = NonNullable<UserShowInfo["list_type"]>;
+
+// The Combobox hands back strings; the list info stores numbers (or "" when cleared).
+const toNumberOrEmpty = (value: string) => (value === "" ? "" : Number(value));
+
 export default function Show({ is_movie }: ShowProps) {
   const { user } = useAuth();
   const { show_id } = useParams<{ show_id: string }>();
@@ -44,7 +49,6 @@ export default function Show({ is_movie }: ShowProps) {
     score: null,
   });
 
-  const [_, setLoading] = useState<boolean>(true);
   const [userShowInfoLoading, setUserShowInfoLoading] = useState<boolean>(true);
 
   const [comment, setComment] = useState<string>("");
@@ -77,19 +81,15 @@ export default function Show({ is_movie }: ShowProps) {
       return listget({ show_id: show_id ? show_id : -1, is_movie: is_movie } as ListGetRequest);
     };
 
-    setLoading(true);
-
     fetchBasicShowInfo().then((res) => {
       if (res.show) {
         setData(res.show);
-        setLoading(false);
       }
     });
 
     fetchShowData().then((res) => {
       if (res.show) {
         setData(res.show);
-        setLoading(false);
       }
     });
 
@@ -112,7 +112,7 @@ export default function Show({ is_movie }: ShowProps) {
           comment: comment,
           comment_id: res.comment_id,
           date: new Date().toISOString(),
-          username: user?.username!,
+          username: user?.username ?? "",
         };
 
         setData((prevData) => {
@@ -152,8 +152,6 @@ export default function Show({ is_movie }: ShowProps) {
         is_movie: is_movie,
         show_id: show_id ? parseInt(show_id) : -1,
         user_show_info: userShowInfo,
-      }).then((res) => {
-        console.log(res);
       });
     }
   }, [userShowInfo, userShowInfoLoading]);
@@ -216,7 +214,7 @@ export default function Show({ is_movie }: ShowProps) {
 
                     setUserShowInfo({
                       ...userShowInfo,
-                      list_type: value,
+                      list_type: value as ListType,
                       season_number: lastSeason.season_number,
                       episode_number: lastEpisode,
                     });
@@ -224,7 +222,7 @@ export default function Show({ is_movie }: ShowProps) {
                     // Lock season and episode numbers to null
                     setUserShowInfo({
                       ...userShowInfo,
-                      list_type: value,
+                      list_type: value as ListType,
                       season_number: null,
                       episode_number: null,
                     });
@@ -232,7 +230,7 @@ export default function Show({ is_movie }: ShowProps) {
                     // Update status without modifying season or episode
                     setUserShowInfo({
                       ...userShowInfo,
-                      list_type: value,
+                      list_type: value as ListType,
                     });
                   }
                 }}
@@ -248,14 +246,14 @@ export default function Show({ is_movie }: ShowProps) {
                     disabled={userShowInfoLoading || !user}
                     value={userShowInfo.season_number?.toString()}
                     elements={data.seasons.map((season) => ({
-                      value: season.season_number?.toString(),
+                      value: season.season_number?.toString() ?? "",
                       label: season.name || `Season ${season.season_number}`,
                     }))}
                     onChange={(value) => {
                       if (userShowInfoLoading) {
                         return;
                       }
-                      setUserShowInfo({ ...userShowInfo, season_number: value, episode_number: 0 });
+                      setUserShowInfo({ ...userShowInfo, season_number: toNumberOrEmpty(value), episode_number: 0 });
                     }}
                     disableSearch
                   />
@@ -341,7 +339,7 @@ export default function Show({ is_movie }: ShowProps) {
                     if (userShowInfoLoading) {
                       return;
                     }
-                    setUserShowInfo({ ...userShowInfo, score: value });
+                    setUserShowInfo({ ...userShowInfo, score: toNumberOrEmpty(value) });
                   }}
                   placeholder="Rate..."
                   disableSearch
@@ -380,7 +378,7 @@ export default function Show({ is_movie }: ShowProps) {
                 Episode Run Time: <span className="font-normal">{data.episode_run_time} minutes</span>
               </p>
             )}
-            {data.origin_country?.split(",")?.length! > 0 && (
+            {(data.origin_country?.split(",").length ?? 0) > 0 && (
               <p className="font-semibold text-muted-foreground flex gap-1">
                 <div>Origin Country:</div>
                 <div className="space-x-1">
@@ -412,7 +410,7 @@ export default function Show({ is_movie }: ShowProps) {
             {data.seasons ? (
               <Card className="w-full h-fit">
                 <CardContent className="py-4">
-                  <Tabs defaultValue={data.seasons[0]?.name!}>
+                  <Tabs defaultValue={data.seasons[0]?.name ?? ""}>
                     <TabsList className="w-full flex-wrap h-fit justify-start">
                       {data.seasons.map((season: Season, index) => (
                         <TabsTrigger key={index} value={season.name!}>

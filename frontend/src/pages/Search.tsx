@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { getErrorMessage } from "@/lib/utils";
 import { Link, useSearchParams } from "react-router-dom";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -62,9 +63,9 @@ export default function Search() {
           setError(response.message);
         }
       })
-      .catch((error: any) => {
+      .catch((error: unknown) => {
         setResult({} as SearchApiResponse);
-        setError(error.message);
+        setError(getErrorMessage(error, "Search failed"));
       })
       .finally(() => {
         setLoading(false);

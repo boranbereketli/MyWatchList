@@ -90,13 +90,14 @@ const apiRequest = async <T>(
     const data: T = await response.json();
 
     if (!response.ok) {
-      throw new Error((data as any).message || "Request failed");
+      throw new Error((data as { message?: string }).message || "Request failed");
     }
 
     return data;
-  } catch (error: any) {
-    console.error(`API Request failed: ${endpoint}`, error.message || error);
-    throw new Error(error.message || "An unknown error occurred");
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "";
+    console.error(`API Request failed: ${endpoint}`, message || error);
+    throw new Error(message || "An unknown error occurred");
   }
 };
 

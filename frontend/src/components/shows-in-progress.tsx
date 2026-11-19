@@ -9,20 +9,17 @@ import { useAuth } from "@/contexts/auth-provider";
 export function ShowsInProgress({ className, ...props }: {} & React.HTMLAttributes<HTMLDivElement>) {
   const { user } = useAuth();
   const [showList, setShowList] = useState<showShort[]>([]);
-  const [_, setLoading] = useState(true); // Tracks loading state
 
   useEffect(() => {
-    setLoading(true);
+    if (!user) return;
     try {
-      userShowList({ user_id: user?.id!, list_type: "Watching" }).then((res) => {
+      userShowList({ user_id: user.id, list_type: "Watching" }).then((res) => {
         if (res.show_list) {
           setShowList(res.show_list);
         }
       });
     } catch (error) {
       console.error("Error loading activities:", error);
-    } finally {
-      setLoading(false);
     }
   }, []);
 
@@ -43,7 +40,6 @@ export function ShowsInProgress({ className, ...props }: {} & React.HTMLAttribut
 
           <div
             onClick={() => {
-              console.log("show");
               incrementShow({
                 show_id: show.show_id,
                 type: show.is_movie ? "movie" : "tv",

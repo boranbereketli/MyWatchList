@@ -4,13 +4,20 @@ import { discoverShows } from "@/lib/api";
 import { Link } from "react-router-dom";
 import { Image } from "./skeleton-img";
 
+interface PopularShow {
+  id: number;
+  poster_path: string | null;
+  title?: string;
+  name?: string;
+}
+
 export function PopularShows({
   className,
   type = "tv",
   limit = 20,
   ...props
 }: { type?: "tv" | "movie"; limit?: number } & React.HTMLAttributes<HTMLDivElement>) {
-  const [shows, setShows] = useState<any[]>([]);
+  const [shows, setShows] = useState<PopularShow[]>([]);
 
   useEffect(() => {
     discoverShows({ type: type, sort_by: "popularity.desc" }).then((res) => {
@@ -29,7 +36,7 @@ export function PopularShows({
         <div key={show.id} className="relative w-full aspect-[4/5] rounded-md overflow-clip group cursor-pointer">
           <Image
             src={`https://image.tmdb.org/t/p/w500/${show.poster_path}`}
-            alt={show.title!}
+            alt={show.title ?? show.name ?? ""}
             className="object-cover w-full h-full absolute inset-0 group-hover:scale-105 transition-transform"
           />
 

@@ -12,7 +12,9 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  // Expose only what the app reads. Passing all of process.env would bake every environment
+  // variable of the build machine (tokens, paths, ...) into the public JS bundle.
   define: {
-    "process.env": process.env,
+    "process.env.API_URL": JSON.stringify(process.env.API_URL ?? ""),
   },
 });
