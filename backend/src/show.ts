@@ -19,23 +19,32 @@ import {
 } from "@shared/types/show";
 import { insertShowById } from "./queries";
 import axios from "axios";
-import { removeUndefined } from "./utils";
+import { isShowType, removeUndefined, toShowId } from "./utils";
 import { JWTPayload } from "@shared/types/auth";
 import jwt from "jsonwebtoken";
 import { DeleteShowCommentRequest, DeleteShowCommentResponse } from "@shared/types/user";
 import { isUserAdmin } from "./admin";
+import { JWT_SECRET } from "./config";
 
 export const showRouter = express.Router();
 
-const JWT_SECRET = process.env.JWT_SECRET || "mywatchlist";
-
 showRouter.get("/info", async (req: Request, res: Response<ShowResponse>) => {
-  const { type, show_id, mode } = req.query as unknown as ShowRequest;
+  const { type, mode } = req.query as unknown as ShowRequest;
+  const show_id = toShowId(req.query.show_id);
 
-  if (!type || !show_id) {
-    return res.status(400).json({ message: "Type and ID are required" });
+  if (!isShowType(type) || show_id === null) {
+    return res.status(400).json({ message: "A valid type (movie or tv) and numeric ID are required" });
   }
 
+  try {
+    return await sendShowInfo(res, show_id, type, mode);
+  } catch (error) {
+    console.error("Error fetching show:", error);
+    return res.status(500).json({ message: "Error fetching show" });
+  }
+});
+
+async function sendShowInfo(res: Response<ShowResponse>, show_id: number, type: "movie" | "tv", mode: string) {
   await insertShowById(show_id, type === "movie", mode === "basic");
 
   let response = await withPoolConnection((client) =>
@@ -86,20 +95,20 @@ showRouter.get("/info", async (req: Request, res: Response<ShowResponse>) => {
       );
       if (response.rows.length !== 0) {
         response.rows.forEach((episode: Episode) => {
-          show.seasons.find((season: Season) => season.season_number === episode.season_number).episodes.push(episode);
+          show.seasons.find((season: Season) => season.season_number === episode.season_number)?.episodes.push(episode);
         });
       }
     }
   }
 
   return res.status(200).json({ message: "Show found", show });
-});
+}
 
 showRouter.get("/search", async (req: Request, res: Response<SearchResponse>) => {
   const params = removeUndefined(req.query as unknown as SearchRequest);
 
-  if (!params.type || !params.query) {
-    return res.status(400).json({ message: "Type and query are required" });
+  if (!isShowType(params.type) || !params.query) {
+    return res.status(400).json({ message: "A valid type (movie or tv) and a query are required" });
   }
 
   const url = `https://api.themoviedb.org/3/search/${params.type}`;
@@ -128,8 +137,6 @@ showRouter.get("/search", async (req: Request, res: Response<SearchResponse>) =>
 showRouter.post("/list", async (req: Request<{}, {}, ListRequest>, res: Response<ListResponse>) => {
   const token = req.cookies?.authToken;
   const { show_id, is_movie, user_show_info } = req.body;
-
-  console.log("Received request to add show to list:", { show_id, is_movie, user_show_info });
 
   if (!token) {
     return res.status(401).json({ message: "Not authenticated" });
@@ -307,8 +314,8 @@ showRouter.delete(
 showRouter.get("/discover", async (req: Request, res: Response<DiscoverShowsResponse>) => {
   const params = removeUndefined(req.query as unknown as DiscoverShowsRequest);
 
-  if (!params.type) {
-    return res.status(400).json({ message: "Type is required" });
+  if (!isShowType(params.type)) {
+    return res.status(400).json({ message: "A valid type (movie or tv) is required" });
   }
 
   try {

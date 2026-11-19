@@ -31,9 +31,12 @@ type ShowData = {
 // Configure the LRU cache
 const showTimeouts = new TTLCache({
   ttl: 10 * 60 * 1000, // 10 minutes
-  max: 100000, // 100.000 * 8bytes = 800MB
+  max: 100000, // keys are short strings, so the cap costs a few MB at most
   noUpdateTTL: true,
 });
+
+// A movie and a tv show can share the same TMDB id, so the cache key must include the type.
+const showCacheKey = (showId: number, is_movie: boolean) => `${is_movie ? "movie" : "tv"}:${showId}`;
 
 export const createDatabase = async (): Promise<void> => {
   const adminClient = new Client({ database: "postgres" });
@@ -340,7 +343,13 @@ const insertEpisodesBySeason = async (showId: number, seasonNumber: number, is_m
 };
 
 export const insertShowById = async (showId: number, is_movie: boolean, basic: boolean = false): Promise<void> => {
-  if (showTimeouts.has(showId)) {
+  // showId ends up inside URLs and raw SQL below, so refuse anything that is not a positive integer.
+  if (!Number.isInteger(showId) || showId <= 0) {
+    console.warn(`[WARN] Ignoring invalid show ID: ${String(showId)}`);
+    return;
+  }
+
+  if (showTimeouts.has(showCacheKey(showId, is_movie))) {
     console.log(`[INFO] Show ID ${showId} is in timeout, skipping...`);
     return;
   }
@@ -532,7 +541,7 @@ export const insertShowById = async (showId: number, is_movie: boolean, basic: b
       }
 
       if (!basic) {
-        showTimeouts.set(showId, true);
+        showTimeouts.set(showCacheKey(showId, is_movie), true);
       }
       console.log(`[SUCCESS] Show with ID ${showId} inserted successfully.`);
     } catch (err: any) {

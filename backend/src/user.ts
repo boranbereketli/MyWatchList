@@ -28,8 +28,8 @@ import {
 } from "@shared/types/user";
 import jwt from "jsonwebtoken";
 import { isUserAdmin } from "./admin";
-
-const JWT_SECRET = process.env.JWT_SECRET || "mywatchlist";
+import { getAuthUser } from "./auth";
+import { JWT_SECRET } from "./config";
 
 export const userRouter = express.Router();
 
@@ -170,10 +170,8 @@ userRouter.get("/statistics", async (req: Request, res: Response<userStatsRespon
 });
 
 userRouter.post("/follow", async (req: Request<{}, {}, userFollowRequest>, res: Response<userFollowResponse>) => {
-  const token = req.cookies?.authToken;
-  const decoded = jwt.verify(token, JWT_SECRET) as JWTPayload;
-
-  if (!token) {
+  const decoded = getAuthUser(req);
+  if (!decoded) {
     return res.status(401).json({ message: "Not authenticated" });
   }
 
@@ -198,7 +196,6 @@ userRouter.post("/follow", async (req: Request<{}, {}, userFollowRequest>, res: 
         return res.status(500).json({ message: "Error unfollowing user" });
       }
 
-      console.log("FOLLOWED USER ID", followerId, "FOLLOWING USER ID", followId);
       return res.status(200).json({ message: "User unfollowed successfully." });
     } catch (error) {
       console.error("Error unfollowing user:", error);
@@ -223,7 +220,6 @@ userRouter.post("/follow", async (req: Request<{}, {}, userFollowRequest>, res: 
         return res.status(500).json({ message: "Error following user" });
       }
 
-      console.log("FOLLOWED USER ID", followerId, "FOLLOWING USER ID", followId);
       return res.status(200).json({ message: "User followed successfully." });
     } catch (error) {
       console.error("Error following user:", error);
@@ -235,11 +231,9 @@ userRouter.post("/follow", async (req: Request<{}, {}, userFollowRequest>, res: 
 userRouter.get("/activity", async (req: Request, res: Response<GetUserActivityResponse>) => {
   const query = req.query as unknown as GetUserActivityRequest;
   const user_id = query.user_id;
-  const offset = query.offset || 0; // Default to 0 if not provided
-  const limit = query.limit || 10; // Default to 10 if not provided
+  const offset = Math.max(Number(query.offset) || 0, 0); // Default to 0 if not provided
+  const limit = Math.min(Math.max(Number(query.limit) || 10, 1), 100); // Default 10, capped at 100
   const include_follows = query.include_follows === "true";
-
-  console.log("user_id", user_id, "offset", offset, "limit", limit, "include_follows", include_follows);
 
   if (!user_id) {
     return res.status(400).json({ message: "user_id is required" });
@@ -290,12 +284,10 @@ userRouter.get("/activity", async (req: Request, res: Response<GetUserActivityRe
 });
 
 userRouter.delete("/delete-activity", async (req: Request, res: Response<DeleteUserActivityResponse>) => {
-  console.log("DELETE ACTIVITY", req.query as unknown as DeleteUserActivityRequest);
-  const token = req.cookies?.authToken;
-  if (!token) {
+  const decoded = getAuthUser(req);
+  if (!decoded) {
     return res.status(401).json({ message: "Unauthorized", success: false });
   }
-  const decoded = jwt.verify(token, JWT_SECRET) as JWTPayload;
 
   const { activity_id } = req.query as unknown as DeleteUserActivityRequest;
 

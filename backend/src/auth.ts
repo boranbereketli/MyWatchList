@@ -2,11 +2,22 @@ import express, { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import { withPoolConnection } from "./db";
+import { JWT_SECRET } from "./config";
 import { JWTPayload, LoginRequest, LoginResponse, RegisterRequest, User, UserResponse } from "@shared/types/auth";
 
 export const authRouter = express.Router();
 
-const JWT_SECRET = process.env.JWT_SECRET || "mywatchlist";
+// Reads the logged-in user from the auth cookie. Returns null (never throws) when the cookie is
+// missing, expired or tampered with, so handlers can answer 401 instead of crashing the process.
+export const getAuthUser = (req: Request): JWTPayload | null => {
+  const token = req.cookies?.authToken;
+  if (!token) return null;
+  try {
+    return jwt.verify(token, JWT_SECRET) as JWTPayload;
+  } catch {
+    return null;
+  }
+};
 
 // Middleware for Token Authentication
 export const authenticateToken = (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
@@ -29,7 +40,7 @@ export const authenticateToken = (req: AuthenticatedRequest, res: Response, next
 authRouter.post("/login", async (req: Request<LoginRequest>, res: Response<LoginResponse>) => {
   const { mail, password } = req.body;
 
-  if (!mail || !password) {
+  if (typeof mail !== "string" || typeof password !== "string" || !mail || !password) {
     return res.status(400).json({ message: "Email and password are required." });
   }
 
@@ -82,8 +93,17 @@ authRouter.post("/login", async (req: Request<LoginRequest>, res: Response<Login
 authRouter.post("/register", async (req: Request<RegisterRequest>, res: Response<LoginResponse>) => {
   const { username, password, mail } = req.body;
 
+  if (typeof username !== "string" || typeof password !== "string" || typeof mail !== "string") {
+    return res.status(400).json({ message: "All fields are required." });
+  }
+
   if (!username || !password || !mail) {
     return res.status(400).json({ message: "All fields are required." });
+  }
+
+  // bcrypt only uses the first 72 bytes; cap the length so huge passwords can't be used to burn CPU.
+  if (password.length < 8 || Buffer.byteLength(password) > 72) {
+    return res.status(400).json({ message: "Password must be 8-72 characters." });
   }
 
   if (!/^[a-zA-Z0-9_]{3,30}$/.test(username)) {
@@ -95,9 +115,6 @@ authRouter.post("/register", async (req: Request<RegisterRequest>, res: Response
   }
 
   try {
-    // Hash the password
-    const hashedPassword = await bcrypt.hash(password, 10);
-
     // Check for conflicts on username or mail
     const checkUserConflictQuery = `
       SELECT username, mail FROM users WHERE username = $1 OR mail = $2
@@ -110,6 +127,8 @@ authRouter.post("/register", async (req: Request<RegisterRequest>, res: Response
         .join(" and ");
       return res.status(409).json({ message: `${conflictFields} already exists.` });
     }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
 
     // Insert the new user into the database
     const insertUserQuery = `

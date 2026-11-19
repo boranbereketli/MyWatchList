@@ -20,10 +20,9 @@ import { withPoolConnection } from "./db";
 import bcrypt from "bcryptjs";
 import axios from "axios";
 import { insertShowById } from "./queries";
+import { JWT_SECRET } from "./config";
 
 export const adminRouter = express.Router();
-
-const JWT_SECRET = process.env.JWT_SECRET || "mywatchlist";
 
 export async function isUserAdmin(token: string): Promise<number> {
   try {
@@ -242,6 +241,11 @@ adminRouter.post(
     }
 
     const { page_count } = req.body;
+
+    // Each page is fetched sequentially (tv + movie), so an unbounded value would tie the server up.
+    if (!Number.isInteger(page_count) || page_count < 1 || page_count > 50) {
+      return res.status(400).json({ message: "page_count must be an integer between 1 and 50" });
+    }
 
     console.log(`Preloading ${page_count}x2 pages of shows...`);
 
